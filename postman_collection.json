@@ -1,0 +1,212 @@
+{
+  "info": {
+    "name": "Career Chatbot API",
+    "description": "Test collection for the personality-driven career chatbot",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:3000/health",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "3000",
+          "path": ["health"]
+        }
+      }
+    },
+    {
+      "name": "Chat - Career Question (Intelligent)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"message\": \"How do I write a compelling resume for a software engineering role?\",\n  \"conversationId\": \"test1\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:3000/chat",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "3000",
+          "path": ["chat"]
+        }
+      }
+    },
+    {
+      "name": "Chat - Non-Career Question (Dumb)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"message\": \"What's your favorite pizza topping?\",\n  \"conversationId\": \"test1\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:3000/chat",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "3000",
+          "path": ["chat"]
+        }
+      }
+    },
+    {
+      "name": "Chat - Follow-up (Tests Memory)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"message\": \"Can you elaborate on that last point?\",\n  \"conversationId\": \"test1\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:3000/chat",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "3000",
+          "path": ["chat"]
+        }
+      }
+    },
+    {
+      "name": "Chat - Introduce Yourself",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"message\": \"Hi! My name is Alex and I'm a junior software developer with 2 years of experience. I want to transition into data science.\",\n  \"conversationId\": \"memory-test\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:3000/chat",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "3000",
+          "path": ["chat"]
+        }
+      }
+    },
+    {
+      "name": "Chat - Test Long-term Memory",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"message\": \"Based on my background, what skills should I focus on?\",\n  \"conversationId\": \"memory-test\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:3000/chat",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "3000",
+          "path": ["chat"]
+        }
+      }
+    },
+    {
+      "name": "Get Memories",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:3000/memories/memory-test",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "3000",
+          "path": ["memories", "memory-test"]
+        }
+      }
+    },
+    {
+      "name": "Clear Memories",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:3000/memories/memory-test",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "3000",
+          "path": ["memories", "memory-test"]
+        }
+      }
+    },
+    {
+      "name": "Chat - Interview Prep",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"message\": \"How should I prepare for a technical interview at a FAANG company?\",\n  \"conversationId\": \"test2\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:3000/chat",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "3000",
+          "path": ["chat"]
+        }
+      }
+    },
+    {
+      "name": "Chat - Salary Negotiation",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"message\": \"What's the best strategy for negotiating a higher salary?\",\n  \"conversationId\": \"test3\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:3000/chat",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "3000",
+          "path": ["chat"]
+        }
+      }
+    }
+  ]
+}
