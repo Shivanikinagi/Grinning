@@ -1,0 +1,30 @@
+{
+  "name": "personality-career-chatbot",
+  "version": "1.0.0",
+  "description": "A Node.js chatbot with split personality: career expert vs hilariously confused, featuring alien/elvish moments and elf-alien war mentions",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "start:memory": "node server-with-memory.js",
+    "dev": "node server.js",
+    "test": "node test-bot.js"
+  },
+  "keywords": [
+    "chatbot",
+    "nodejs",
+    "llm",
+    "career",
+    "api",
+    "express",
+    "conversational-ai",
+    "prompt-engineering"
+  ],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "axios": "^1.15.0",
+    "dotenv": "^17.4.1",
+    "express": "^5.2.1"
+  }
+}

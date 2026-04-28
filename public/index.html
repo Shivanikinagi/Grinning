@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SVM Task Manager</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Team Member Selection -->
+        <div id="loginScreen" class="screen">
+            <div class="header">
+                <h1>🎯 SVM Tasks</h1>
+                <p class="subtitle">Select your name to view tasks</p>
+            </div>
+            <div class="team-selection" id="teamSelection">
+                <div class="loading">Loading team members...</div>
+            </div>
+        </div>
+
+        <!-- Task Dashboard -->
+        <div id="dashboardScreen" class="screen hidden">
+            <div class="header">
+                <div class="header-top">
+                    <h2 id="userName">Welcome</h2>
+                    <button class="btn-logout" onclick="logout()">Change User</button>
+                </div>
+                <p class="date" id="currentDate"></p>
+                <div class="stats">
+                    <div class="stat">
+                        <span class="stat-number" id="pendingCount">0</span>
+                        <span class="stat-label">Pending</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-number" id="completedCount">0</span>
+                        <span class="stat-label">Done</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AI Insights -->
+            <div class="insights-card" id="insightsCard">
+                <div class="insights-icon">🤖</div>
+                <div class="insights-text" id="insightsText">Loading insights...</div>
+            </div>
+
+            <!-- Recurring Tasks -->
+            <div class="section">
+                <h3 class="section-title">🔄 Recurring Tasks</h3>
+                <div id="recurringTasks" class="task-list">
+                    <div class="empty-state">No recurring tasks for today</div>
+                </div>
+            </div>
+
+            <!-- One-time Tasks -->
+            <div class="section">
+                <h3 class="section-title">📌 One-time Tasks</h3>
+                <div id="oneTimeTasks" class="task-list">
+                    <div class="empty-state">No one-time tasks for today</div>
+                </div>
+            </div>
+
+            <!-- Refresh Button -->
+            <button class="btn-refresh" onclick="refreshTasks()">
+                <span id="refreshIcon">🔄</span> Refresh Tasks
+            </button>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast"></div>
+
+    <script src="app.js"></script>
+</body>
+</html>

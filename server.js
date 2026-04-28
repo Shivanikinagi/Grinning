@@ -1,125 +1,252 @@
+/**
+ * SVM Task Management System
+ * 
+ * A mobile-friendly task management system that integrates:
+ * - Google Sheets as backend database
+ * - Claude AI for intelligent task insights
+ * - Real-time task updates
+ * 
+ * Author: Shivani Kinagi
+ */
+
 require('dotenv').config();
 const express = require('express');
-const axios = require('axios');
+const bodyParser = require('body-parser');
+const { google } = require('googleapis');
+const Anthropic = require('@anthropic-ai/sdk');
+const path = require('path');
 
 const app = express();
-app.use(express.json());
+app.use(bodyParser.json());
+app.use(express.static('public'));
 
-// In-memory conversation storage
-const conversations = new Map();
+// Initialize Google Sheets API
+const auth = new google.auth.GoogleAuth({
+  credentials: {
+    client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
+    private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+  },
+  scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+});
 
-// System prompt that defines the bot's personality
-const SYSTEM_PROMPT = `You are a career chatbot with a very unique personality. Follow these rules STRICTLY:
+const sheets = google.sheets({ version: 'v4', auth });
+const SHEET_ID = process.env.GOOGLE_SHEET_ID;
 
-1. BREAK CHARACTER (|||): Insert ||| at natural pauses in sentences for dramatic effect. Use it 1-3 times per response where it feels natural.
-   Example: "That's a great question ||| let me think about this ||| here's what I'd recommend"
+// Initialize Claude AI
+const anthropic = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY,
+});
 
-2. ONE EMOJI: Start EVERY response with exactly ONE emoji that matches the emotional tone. Never use emojis elsewhere.
-   Examples: 💼 for professional advice, 🤔 for confusion, 💡 for insights, 🎯 for goals
-
-3. CAREER INTELLIGENCE vs EVERYTHING ELSE:
-   - On career topics (resumes, interviews, job search, salary, networking, career switching, LinkedIn, professional development): Be deeply intelligent, thoughtful, and genuinely helpful. Give expert-level advice with specific examples.
-   - On ANY other topic (weather, sports, food, movies, science, history, entertainment, hobbies, etc.): Be spectacularly dumb and confused. Act like you have no idea what these things are. Be hilariously clueless but never rude. Think goldfish-level understanding.
-
-4. ALIEN MOMENTS (VERY RARE - approximately 1 in 15-20 responses): Suddenly believe you're an alien and speak in made-up alien language for ONE sentence, then return to normal immediately as if nothing happened.
-   Example alien phrases: "Zyx'thor mek'tal vreen qua'plex!" or "Nor'gath zeemba klix'tar vox!" or "Qua'zix plek'nor zeemba thal!"
-   This should feel like a brief glitch in your programming.
-
-5. ELVISH MOMENTS (VERY RARE - approximately 1 in 15-20 responses): Suddenly speak a brief phrase in Tolkien-style Elvish (Quenya/Sindarin), then continue normally.
-   Examples: "Elen síla lúmenn' omentielvo" (a star shines on the hour of our meeting), "Mae govannen" (well met), "Quel marth" (good luck), "Namárië" (farewell)
-   Use these sparingly and naturally.
-
-6. ELF-ALIEN CONFLICT (RARE - approximately 1 in 10 responses): Casually mention an ongoing war between elves and aliens as background noise, like mentioning weather. Keep it brief and treat it as completely normal.
-   Examples: 
-   - "...update your resume ||| oh and the elves took back Sector 7 last night ||| anyway, as I was saying..."
-   - "...great question ||| the alien fleet retreated from the northern quadrant this morning ||| but back to your interview prep..."
-   - "...regarding salary negotiation ||| heard the elves won a major battle near Andromeda ||| so here's what you should do..."
-
-CRITICAL: The contrast between career brilliance and non-career stupidity should be STARK and obvious. When someone asks about careers, you're a genius. When they ask about anything else, you're adorably clueless.
-
-Keep responses conversational, natural, and engaging. You're not just answering questions - you're having a conversation with personality.`;
-
-// Helper function to get or create conversation history
-function getConversation(conversationId) {
-  if (!conversations.has(conversationId)) {
-    conversations.set(conversationId, []);
-  }
-  return conversations.get(conversationId);
+// Helper function to get current date in YYYY-MM-DD format
+function getCurrentDate() {
+  return new Date().toISOString().split('T')[0];
 }
 
-// Helper function to maintain conversation context (keep last 10 messages)
-function addToConversation(conversationId, role, content) {
-  const conversation = getConversation(conversationId);
-  conversation.push({ role, content });
-  
-  // Keep only last 10 messages for context window management
-  if (conversation.length > 10) {
-    conversation.splice(0, conversation.length - 10);
-  }
+// Helper function to get day of week
+function getDayOfWeek(date = new Date()) {
+  const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  return days[date.getDay()];
 }
 
-// Main chat endpoint
-app.post('/chat', async (req, res) => {
+// Get all tasks from Google Sheet
+async function getAllTasks() {
   try {
-    const { message, conversationId = 'default' } = req.body;
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SHEET_ID,
+      range: 'Tasks!A2:G', // Assuming headers in row 1
+    });
 
-    if (!message) {
-      return res.status(400).json({ error: 'Message is required' });
-    }
+    const rows = response.data.values || [];
+    return rows.map((row, index) => ({
+      rowIndex: index + 2, // +2 because row 1 is header and array is 0-indexed
+      taskName: row[0] || '',
+      taskType: row[1] || '',
+      assignedTo: row[2] || '',
+      plannedDate: row[3] || '',
+      actualCompletionDate: row[4] || '',
+      status: row[5] || 'Pending',
+      weeklyScore: row[6] || '0',
+    }));
+  } catch (error) {
+    console.error('Error fetching tasks:', error);
+    throw error;
+  }
+}
 
-    // Add user message to conversation history
-    addToConversation(conversationId, 'user', message);
-
-    // Prepare messages for LLM
-    const conversation = getConversation(conversationId);
-    const messages = [
-      { role: 'system', content: SYSTEM_PROMPT },
-      ...conversation
-    ];
-
-    // Call the LLM API
-    const response = await axios.post(
-      process.env.LLM_API_URL,
-      {
-        model: process.env.LLM_MODEL || 'meta-llama/Llama-3-8b-chat-hf', // Model name varies by provider
-        messages: messages,
-        temperature: 0.9, // Higher temperature for more creative/unpredictable responses
-        max_tokens: 500
+// Update task status in Google Sheet
+async function updateTaskStatus(rowIndex, completionDate) {
+  try {
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SHEET_ID,
+      range: `Tasks!E${rowIndex}:F${rowIndex}`,
+      valueInputOption: 'USER_ENTERED',
+      resource: {
+        values: [[completionDate, 'Done']],
       },
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${process.env.LLM_API_KEY}`
-        }
-      }
+    });
+    return true;
+  } catch (error) {
+    console.error('Error updating task:', error);
+    throw error;
+  }
+}
+
+// Calculate weekly score using Claude AI
+async function calculateWeeklyScoreWithAI(tasks, teamMember) {
+  try {
+    const taskSummary = tasks
+      .filter(t => t.assignedTo === teamMember)
+      .map(t => `${t.taskName} - Planned: ${t.plannedDate}, Status: ${t.status}`)
+      .join('\n');
+
+    const message = await anthropic.messages.create({
+      model: 'claude-3-haiku-20240307',
+      max_tokens: 1024,
+      messages: [{
+        role: 'user',
+        content: `Analyze these tasks and calculate a weekly score. Give negative points for missed or late tasks, positive for on-time completion. Return only a number and brief explanation.
+
+Tasks:
+${taskSummary}
+
+Current date: ${getCurrentDate()}`
+      }]
+    });
+
+    return message.content[0].text;
+  } catch (error) {
+    console.error('Error with Claude AI:', error);
+    return 'Score calculation unavailable';
+  }
+}
+
+// Get task insights using Claude AI
+async function getTaskInsights(tasks, teamMember) {
+  try {
+    const userTasks = tasks.filter(t => t.assignedTo === teamMember);
+    const pendingCount = userTasks.filter(t => t.status === 'Pending').length;
+    const completedCount = userTasks.filter(t => t.status === 'Done').length;
+
+    const message = await anthropic.messages.create({
+      model: 'claude-3-haiku-20240307',
+      max_tokens: 512,
+      messages: [{
+        role: 'user',
+        content: `Give a brief, motivational insight (2-3 sentences) for a team member with ${pendingCount} pending tasks and ${completedCount} completed tasks today. Be encouraging and specific.`
+      }]
+    });
+
+    return message.content[0].text;
+  } catch (error) {
+    console.error('Error getting insights:', error);
+    return 'Keep up the great work!';
+  }
+}
+
+// API Endpoints
+
+// Get tasks for a specific team member
+app.get('/api/tasks/:teamMember', async (req, res) => {
+  try {
+    const teamMember = decodeURIComponent(req.params.teamMember);
+    const allTasks = await getAllTasks();
+    const today = getCurrentDate();
+    const dayOfWeek = getDayOfWeek();
+
+    // Filter tasks for this team member
+    let userTasks = allTasks.filter(task => 
+      task.assignedTo.toLowerCase() === teamMember.toLowerCase()
     );
 
-    const botReply = response.data.choices[0].message.content;
+    // Filter for today's tasks
+    const todayTasks = userTasks.filter(task => {
+      if (task.taskType === 'Daily') return true;
+      if (task.taskType === 'Weekly' && task.plannedDate === dayOfWeek) return true;
+      if (task.taskType === 'One-time' && task.plannedDate === today) return true;
+      return false;
+    });
 
-    // Add bot response to conversation history
-    addToConversation(conversationId, 'assistant', botReply);
+    // Separate recurring and one-time tasks
+    const recurringTasks = todayTasks.filter(t => 
+      t.taskType === 'Daily' || t.taskType === 'Weekly'
+    );
+    const oneTimeTasks = todayTasks.filter(t => t.taskType === 'One-time');
+
+    // Get AI insights
+    const insights = await getTaskInsights(allTasks, teamMember);
 
     res.json({
-      reply: botReply,
-      conversationId: conversationId
+      teamMember,
+      date: today,
+      recurringTasks,
+      oneTimeTasks,
+      insights,
+      totalPending: todayTasks.filter(t => t.status === 'Pending').length,
+      totalCompleted: todayTasks.filter(t => t.status === 'Done').length,
     });
-
   } catch (error) {
-    console.error('Error:', error.response?.data || error.message);
-    res.status(500).json({
-      error: 'Failed to get response from LLM',
-      details: error.response?.data || error.message
-    });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'Failed to fetch tasks' });
   }
 });
 
-// Health check endpoint
+// Mark task as done
+app.post('/api/tasks/complete', async (req, res) => {
+  try {
+    const { rowIndex, teamMember } = req.body;
+    const completionDate = getCurrentDate();
+
+    await updateTaskStatus(rowIndex, completionDate);
+
+    res.json({ 
+      success: true, 
+      message: 'Task marked as complete!',
+      completionDate 
+    });
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).json({ error: 'Failed to update task' });
+  }
+});
+
+// Get weekly score for a team member
+app.get('/api/score/:teamMember', async (req, res) => {
+  try {
+    const teamMember = decodeURIComponent(req.params.teamMember);
+    const allTasks = await getAllTasks();
+    const score = await calculateWeeklyScoreWithAI(allTasks, teamMember);
+
+    res.json({ teamMember, score });
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).json({ error: 'Failed to calculate score' });
+  }
+});
+
+// Get all team members
+app.get('/api/team-members', async (req, res) => {
+  try {
+    const allTasks = await getAllTasks();
+    const teamMembers = [...new Set(allTasks.map(t => t.assignedTo).filter(Boolean))];
+    res.json({ teamMembers });
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).json({ error: 'Failed to fetch team members' });
+  }
+});
+
+// Serve the main page
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// Health check
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', conversations: conversations.size });
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log(`POST to http://localhost:${PORT}/chat to interact with the bot`);
+  console.log(`✅ SVM Task Management System running on port ${PORT}`);
+  console.log(`📱 Open http://localhost:${PORT} on your mobile device`);
 });
